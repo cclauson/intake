@@ -3,8 +3,8 @@ import "./globals.css";
 import AppInsightsProvider from "../components/AppInsightsProvider";
 
 export const metadata: Metadata = {
-  title: "vnext-ux",
-  description: "VNext UX Service",
+  title: "Nutrition Tracking",
+  description: "Track your meals, monitor your nutrients, and build healthier habits.",
 };
 
 export default function RootLayout({

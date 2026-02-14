@@ -52,6 +52,32 @@ jobs:
           DATABASE_URL="postgresql://pgadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${FQDN}:5432/vnextdb?sslmode=require"
           echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_OUTPUT
 
+      - name: Login to External ID Tenant
+        run: |
+          az login --service-principal \
+            --username ${{ secrets.EXTERNAL_ID_CLIENT_ID }} \
+            --password "${{ secrets.EXTERNAL_ID_CLIENT_SECRET }}" \
+            --tenant ${{ secrets.EXTERNAL_ID_TENANT_ID }} \
+            --allow-no-subscriptions
+
+      - name: Get SPA App Registration Info
+        id: spa_app
+        run: |
+          APP_ID=$(az ad app list \
+            --display-name "${{ vars.SPA_APP_DISPLAY_NAME }}" \
+            --query "[0].appId" -o tsv)
+          echo "APP_ID=$APP_ID" >> $GITHUB_OUTPUT
+          AUTHORITY="https://${{ vars.EXTERNAL_ID_TENANT_SUBDOMAIN }}.ciamlogin.com/${{ secrets.EXTERNAL_ID_TENANT_ID }}"
+          echo "AUTHORITY=$AUTHORITY" >> $GITHUB_OUTPUT
+
+      - name: Re-login to Azure Subscription
+        uses: ./.github/actions/azure-login
+        with:
+          azure-deploy-client-id: ${{ secrets.AZURE_DEPLOY_CLIENT_ID }}
+          azure-deploy-client-secret: ${{ secrets.AZURE_DEPLOY_CLIENT_SECRET }}
+          azure-deploy-subscription-id: ${{ secrets.AZURE_DEPLOY_SUBSCRIPTION_ID }}
+          azure-deploy-tenant-id: ${{ secrets.AZURE_DEPLOY_TENANT_ID }}
+
       - name: Login to ACR
         run: az acr login --name ${{ steps.unique_names.outputs.acrName }}
 
@@ -66,6 +92,8 @@ jobs:
           TAG="${{ steps.acr_info.outputs.ACR_LOGIN_SERVER }}/vnext-ux:${{ github.sha }}"
           docker build \
             --build-arg NEXT_PUBLIC_APPINSIGHTS_CONNECTION_STRING="${{ steps.appinsights.outputs.CONNECTION_STRING }}" \
+            --build-arg NEXT_PUBLIC_AUTH_CLIENT_ID="${{ steps.spa_app.outputs.APP_ID }}" \
+            --build-arg NEXT_PUBLIC_AUTH_AUTHORITY="${{ steps.spa_app.outputs.AUTHORITY }}" \
             -t "$TAG" ./ux
           docker push "$TAG"
 

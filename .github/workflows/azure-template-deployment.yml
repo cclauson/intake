@@ -104,6 +104,92 @@ jobs:
             -Subdomain $subdomain
         shell: pwsh
 
+      - name: Login to External ID Tenant
+        run: |
+          az login --service-principal `
+            --username ${{ secrets.EXTERNAL_ID_CLIENT_ID }} `
+            --password ${{ secrets.EXTERNAL_ID_CLIENT_SECRET }} `
+            --tenant ${{ secrets.EXTERNAL_ID_TENANT_ID }} `
+            --allow-no-subscriptions
+        shell: pwsh
+
+      - name: Create SPA App Registration
+        run: |
+          $displayName = "${{ vars.SPA_APP_DISPLAY_NAME }}"
+          $customDomain = "${{ vars.CUSTOM_DOMAIN_NAME }}"
+          $redirectUris = @(
+            "https://${customDomain}/app",
+            "http://localhost:3000/app"
+          )
+          $redirectUrisJson = $redirectUris | ConvertTo-Json -Compress
+
+          # Check if app registration already exists
+          $existingApp = az ad app list --display-name $displayName --query "[0].appId" -o tsv
+          if ($existingApp) {
+            Write-Host "Updating existing app registration: $existingApp"
+            az ad app update --id $existingApp `
+              --spa-redirect-uris $redirectUris
+          } else {
+            Write-Host "Creating new app registration: $displayName"
+            az ad app create `
+              --display-name $displayName `
+              --sign-in-audience AzureADandPersonalMicrosoftAccount `
+              --spa-redirect-uris $redirectUris
+          }
+        shell: pwsh
+
+      - name: Create User Flow
+        run: |
+          $tenantId = "${{ secrets.EXTERNAL_ID_TENANT_ID }}"
+          $accessToken = az account get-access-token `
+            --resource-type ms-graph `
+            --query accessToken -o tsv
+
+          # Check if user flow already exists
+          $existingFlows = Invoke-RestMethod `
+            -Uri "https://graph.microsoft.com/beta/identity/authenticationEventsFlows" `
+            -Headers @{ Authorization = "Bearer $accessToken" } `
+            -Method Get
+
+          $flowExists = $existingFlows.value | Where-Object { $_.displayName -eq "Sign up and sign in" }
+
+          if (-not $flowExists) {
+            Write-Host "Creating sign-up/sign-in user flow"
+            $body = @{
+              "@odata.type" = "#microsoft.graph.externalUsersSelfServiceSignUpEventsFlow"
+              displayName = "Sign up and sign in"
+              onAuthenticationMethodLoadStart = @{
+                "@odata.type" = "#microsoft.graph.onAuthenticationMethodLoadStartExternalUsersSelfServiceSignUp"
+                identityProviders = @(
+                  @{
+                    "@odata.type" = "#microsoft.graph.builtInIdentityProvider"
+                    id = "EmailPassword-OAUTH"
+                  }
+                )
+              }
+            } | ConvertTo-Json -Depth 10
+
+            Invoke-RestMethod `
+              -Uri "https://graph.microsoft.com/beta/identity/authenticationEventsFlows" `
+              -Headers @{
+                Authorization = "Bearer $accessToken"
+                "Content-Type" = "application/json"
+              } `
+              -Method Post `
+              -Body $body
+          } else {
+            Write-Host "User flow already exists, skipping creation"
+          }
+        shell: pwsh
+
+      - name: Re-login to Azure Subscription
+        uses: ./.github/actions/azure-login
+        with:
+          azure-deploy-client-id: ${{ secrets.AZURE_DEPLOY_CLIENT_ID }}
+          azure-deploy-client-secret: ${{ secrets.AZURE_DEPLOY_CLIENT_SECRET }}
+          azure-deploy-subscription-id: ${{ secrets.AZURE_DEPLOY_SUBSCRIPTION_ID }}
+          azure-deploy-tenant-id: ${{ secrets.AZURE_DEPLOY_TENANT_ID }}
+
       - name: Create App Namespace
         run: |
           kubectl apply -f ./k8s/namespace.yaml
