@@ -1,0 +1,121 @@
+name: Azure App Deployment
+
+on: workflow_dispatch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: ./.github/actions/azure-login
+        with:
+          azure-deploy-client-id: ${{ secrets.AZURE_DEPLOY_CLIENT_ID }}
+          azure-deploy-client-secret: ${{ secrets.AZURE_DEPLOY_CLIENT_SECRET }}
+          azure-deploy-subscription-id: ${{ secrets.AZURE_DEPLOY_SUBSCRIPTION_ID }}
+          azure-deploy-tenant-id: ${{ secrets.AZURE_DEPLOY_TENANT_ID }}
+
+      - name: Generate Unique Names
+        id: unique_names
+        uses: ./.github/actions/create-unique-names
+        with:
+          resourceGroupName: ${{ vars.AZURE_RESOURCE_GROUP }}
+
+      - name: Get ACR Login Server
+        id: acr_info
+        run: |
+          ACR_LOGIN_SERVER=$(az acr show \
+            --name ${{ steps.unique_names.outputs.acrName }} \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --query loginServer -o tsv)
+          echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_OUTPUT
+
+      - name: Get App Insights Connection String
+        id: appinsights
+        run: |
+          CONNECTION_STRING=$(az resource show \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --resource-type "Microsoft.Insights/components" \
+            --name ${{ steps.unique_names.outputs.applicationInsightsName }} \
+            --query properties.ConnectionString -o tsv)
+          echo "CONNECTION_STRING=$CONNECTION_STRING" >> $GITHUB_OUTPUT
+
+      - name: Get PostgreSQL Connection String
+        id: postgres
+        run: |
+          FQDN=$(az postgres flexible-server show \
+            --name ${{ steps.unique_names.outputs.postgresServerName }} \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --query fullyQualifiedDomainName -o tsv)
+          DATABASE_URL="postgresql://pgadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${FQDN}:5432/vnextdb?sslmode=require"
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_OUTPUT
+
+      - name: Login to ACR
+        run: az acr login --name ${{ steps.unique_names.outputs.acrName }}
+
+      - name: Build and Push API Image
+        run: |
+          TAG="${{ steps.acr_info.outputs.ACR_LOGIN_SERVER }}/vnext-api:${{ github.sha }}"
+          docker build -t "$TAG" ./api
+          docker push "$TAG"
+
+      - name: Build and Push UX Image
+        run: |
+          TAG="${{ steps.acr_info.outputs.ACR_LOGIN_SERVER }}/vnext-ux:${{ github.sha }}"
+          docker build \
+            --build-arg NEXT_PUBLIC_APPINSIGHTS_CONNECTION_STRING="${{ steps.appinsights.outputs.CONNECTION_STRING }}" \
+            -t "$TAG" ./ux
+          docker push "$TAG"
+
+      - name: Get AKS Credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --name ${{ steps.unique_names.outputs.aksName }} \
+            --overwrite-existing
+
+      - name: Deploy to AKS
+        run: |
+          kubectl apply -f ./k8s/namespace.yaml
+          sed -e "s|__ACR_LOGIN_SERVER__|${{ steps.acr_info.outputs.ACR_LOGIN_SERVER }}|g" \
+              -e "s|__TAG__|${{ github.sha }}|g" \
+              -e "s|__APPINSIGHTS_CONNECTION_STRING__|${{ steps.appinsights.outputs.CONNECTION_STRING }}|g" \
+              -e "s|__DATABASE_URL__|${{ steps.postgres.outputs.DATABASE_URL }}|g" \
+              ./k8s/api-deployment.yaml | kubectl apply -f -
+          sed -e "s|__ACR_LOGIN_SERVER__|${{ steps.acr_info.outputs.ACR_LOGIN_SERVER }}|g" \
+              -e "s|__TAG__|${{ github.sha }}|g" \
+              -e "s|__APPINSIGHTS_CONNECTION_STRING__|${{ steps.appinsights.outputs.CONNECTION_STRING }}|g" \
+              ./k8s/ux-deployment.yaml | kubectl apply -f -
+          kubectl apply -f ./k8s/api-service.yaml
+          kubectl apply -f ./k8s/ux-service.yaml
+          kubectl apply -f ./k8s/api-hpa.yaml
+          kubectl apply -f ./k8s/ux-hpa.yaml
+          kubectl apply -f ./k8s/ingress.yaml
+
+      - name: Wait for Rollouts
+        run: |
+          kubectl rollout status deployment/vnext-api -n vnext-app --timeout=300s
+          kubectl rollout status deployment/vnext-ux -n vnext-app --timeout=300s
+
+      - name: Debug Rollout Failure
+        if: failure()
+        run: |
+          echo "=== Pod Status ==="
+          kubectl get pods -n vnext-app -o wide
+          echo ""
+          echo "=== Node Resources ==="
+          kubectl top nodes || true
+          echo ""
+          echo "=== Pod Descriptions ==="
+          kubectl describe pods -n vnext-app
+          echo ""
+          echo "=== Recent Pod Logs (API) ==="
+          kubectl logs -n vnext-app -l app=vnext-api --tail=50 --all-containers || true
+          echo ""
+          echo "=== Recent Pod Logs (UX) ==="
+          kubectl logs -n vnext-app -l app=vnext-ux --tail=50 --all-containers || true
+          echo ""
+          echo "=== Events ==="
+          kubectl get events -n vnext-app --sort-by='.lastTimestamp'
