@@ -222,6 +222,57 @@ jobs:
           }
         shell: pwsh
 
+      - name: Grant Admin Consent for SPA App
+        run: |
+          $appId = "${{ steps.spa_app.outputs.APP_ID }}"
+          $spId = (az ad sp list --filter "appId eq '$appId'" --query "[0].id" -o tsv)
+
+          $accessToken = az account get-access-token `
+            --resource-type ms-graph `
+            --query accessToken -o tsv
+
+          # Microsoft Graph service principal (well-known appId)
+          $graphAppId = "00000003-0000-0000-c000-000000000000"
+          $graphSp = (az ad sp list --filter "appId eq '$graphAppId'" --query "[0]" -o json | ConvertFrom-Json)
+          $graphSpId = $graphSp.id
+
+          # Find the oauth2PermissionScopes for openid, profile, offline_access
+          $scopes = @("openid", "profile", "offline_access")
+          $scopeIds = @()
+          foreach ($scope in $scopes) {
+            $scopeId = ($graphSp.oauth2PermissionScopes | Where-Object { $_.value -eq $scope }).id
+            if ($scopeId) { $scopeIds += $scopeId }
+          }
+
+          # Check if consent grant already exists
+          $existingGrants = Invoke-RestMethod `
+            -Uri "https://graph.microsoft.com/v1.0/oauth2PermissionGrants?`$filter=clientId eq '$spId' and resourceId eq '$graphSpId'" `
+            -Headers @{ Authorization = "Bearer $accessToken" } `
+            -Method Get
+
+          if ($existingGrants.value.Count -eq 0) {
+            Write-Host "Granting admin consent for openid, profile, offline_access"
+            $body = @{
+              clientId = $spId
+              consentType = "AllPrincipals"
+              resourceId = $graphSpId
+              scope = ($scopes -join " ")
+            } | ConvertTo-Json
+
+            Invoke-RestMethod `
+              -Uri "https://graph.microsoft.com/v1.0/oauth2PermissionGrants" `
+              -Headers @{
+                Authorization = "Bearer $accessToken"
+                "Content-Type" = "application/json"
+              } `
+              -Method Post `
+              -Body $body
+            Write-Host "Admin consent granted successfully"
+          } else {
+            Write-Host "Admin consent already granted, skipping"
+          }
+        shell: pwsh
+
       - name: Link App to User Flow
         run: |
           $accessToken = az account get-access-token `
