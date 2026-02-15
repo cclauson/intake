@@ -208,6 +208,20 @@ jobs:
           echo "FLOW_ID=$flowId" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
         shell: pwsh
 
+      - name: Create Service Principal for SPA App
+        run: |
+          $appId = "${{ steps.spa_app.outputs.APP_ID }}"
+
+          # Check if service principal already exists
+          $existingSp = az ad sp list --filter "appId eq '$appId'" --query "[0]" -o json | ConvertFrom-Json
+          if (-not $existingSp) {
+            Write-Host "Creating service principal for app $appId"
+            az ad sp create --id $appId
+          } else {
+            Write-Host "Service principal already exists, skipping"
+          }
+        shell: pwsh
+
       - name: Link App to User Flow
         run: |
           $accessToken = az account get-access-token `
