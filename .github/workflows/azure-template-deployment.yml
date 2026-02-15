@@ -117,27 +117,27 @@ jobs:
         run: |
           $displayName = "${{ vars.SPA_APP_DISPLAY_NAME }}"
           $customDomain = "${{ vars.CUSTOM_DOMAIN_NAME }}"
-          $spaBody = @{
-            spa = @{
-              redirectUris = @(
-                "https://${customDomain}/app",
-                "http://localhost:3000/app"
-              )
-            }
-          } | ConvertTo-Json -Depth 5 -Compress
 
           # Check if app registration already exists
           $existingApp = az ad app list --display-name $displayName --query "[0]" -o json | ConvertFrom-Json
           if ($existingApp) {
             $objectId = $existingApp.id
             Write-Host "Updating existing app registration: $objectId"
+            @{
+              spa = @{
+                redirectUris = @(
+                  "https://${customDomain}/app",
+                  "http://localhost:3000/app"
+                )
+              }
+            } | ConvertTo-Json -Depth 5 | Set-Content -Path body.json
             az rest --method PATCH `
               --uri "https://graph.microsoft.com/v1.0/applications/$objectId" `
               --headers "Content-Type=application/json" `
-              --body $spaBody
+              --body "@body.json"
           } else {
             Write-Host "Creating new app registration: $displayName"
-            $createBody = @{
+            @{
               displayName = $displayName
               signInAudience = "AzureADandPersonalMicrosoftAccount"
               spa = @{
@@ -146,11 +146,11 @@ jobs:
                   "http://localhost:3000/app"
                 )
               }
-            } | ConvertTo-Json -Depth 5 -Compress
+            } | ConvertTo-Json -Depth 5 | Set-Content -Path body.json
             az rest --method POST `
               --uri "https://graph.microsoft.com/v1.0/applications" `
               --headers "Content-Type=application/json" `
-              --body $createBody
+              --body "@body.json"
           }
         shell: pwsh
 
