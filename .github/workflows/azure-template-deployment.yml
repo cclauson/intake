@@ -169,7 +169,7 @@ jobs:
 
           # Check if user flow already exists
           $existingFlows = Invoke-RestMethod `
-            -Uri "https://graph.microsoft.com/beta/identity/authenticationEventsFlows" `
+            -Uri "https://graph.microsoft.com/v1.0/identity/authenticationEventsFlows" `
             -Headers @{ Authorization = "Bearer $accessToken" } `
             -Method Get
 
@@ -192,7 +192,7 @@ jobs:
             } | ConvertTo-Json -Depth 10
 
             $result = Invoke-RestMethod `
-              -Uri "https://graph.microsoft.com/beta/identity/authenticationEventsFlows" `
+              -Uri "https://graph.microsoft.com/v1.0/identity/authenticationEventsFlows" `
               -Headers @{
                 Authorization = "Bearer $accessToken"
                 "Content-Type" = "application/json"
@@ -233,7 +233,7 @@ jobs:
 
           # Check if app is already linked to the flow
           $linkedApps = Invoke-RestMethod `
-            -Uri "https://graph.microsoft.com/beta/identity/authenticationEventsFlows/$flowId/conditions/applications/includeApplications" `
+            -Uri "https://graph.microsoft.com/v1.0/identity/authenticationEventsFlows/$flowId/conditions/applications/includeApplications" `
             -Headers @{ Authorization = "Bearer $accessToken" } `
             -Method Get
 
@@ -247,7 +247,7 @@ jobs:
             } | ConvertTo-Json
 
             Invoke-RestMethod `
-              -Uri "https://graph.microsoft.com/beta/identity/authenticationEventsFlows/$flowId/conditions/applications/includeApplications" `
+              -Uri "https://graph.microsoft.com/v1.0/identity/authenticationEventsFlows/$flowId/conditions/applications/includeApplications" `
               -Headers @{
                 Authorization = "Bearer $accessToken"
                 "Content-Type" = "application/json"
