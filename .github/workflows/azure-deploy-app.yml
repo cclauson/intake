@@ -70,6 +70,14 @@ jobs:
           AUTHORITY="https://${{ vars.EXTERNAL_ID_TENANT_SUBDOMAIN }}.ciamlogin.com/${{ secrets.EXTERNAL_ID_TENANT_ID }}"
           echo "AUTHORITY=$AUTHORITY" >> $GITHUB_OUTPUT
 
+      - name: Get API App Registration Info
+        id: api_app
+        run: |
+          APP_ID=$(az ad app list \
+            --display-name "${{ vars.API_APP_DISPLAY_NAME }}" \
+            --query "[0].appId" -o tsv)
+          echo "APP_ID=$APP_ID" >> $GITHUB_OUTPUT
+
       - name: Re-login to Azure Subscription
         uses: ./.github/actions/azure-login
         with:
@@ -111,6 +119,9 @@ jobs:
               -e "s|__TAG__|${{ github.sha }}|g" \
               -e "s|__APPINSIGHTS_CONNECTION_STRING__|${{ steps.appinsights.outputs.CONNECTION_STRING }}|g" \
               -e "s|__DATABASE_URL__|${{ steps.postgres.outputs.DATABASE_URL }}|g" \
+              -e "s|__ENTRA_TENANT_ID__|${{ secrets.EXTERNAL_ID_TENANT_ID }}|g" \
+              -e "s|__ENTRA_CLIENT_ID__|${{ steps.api_app.outputs.APP_ID }}|g" \
+              -e "s|__PROXY_BASE_URL__|${{ vars.MCP_PROXY_BASE_URL }}|g" \
               ./k8s/api-deployment.yaml | kubectl apply -f -
           sed -e "s|__ACR_LOGIN_SERVER__|${{ steps.acr_info.outputs.ACR_LOGIN_SERVER }}|g" \
               -e "s|__TAG__|${{ github.sha }}|g" \
