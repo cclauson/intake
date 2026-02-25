@@ -26,11 +26,11 @@ function createMcpServer(): McpServer {
   return server;
 }
 
-export function createMcpRouter(tenantId: string, entraClientId: string, proxyBaseUrl: string): {
+export function createMcpRouter(tenantId: string, entraClientId: string, proxyBaseUrl: string, entraAuthority?: string): {
   mcpRouter: Router;
   wellKnownRouter: Router;
 } {
-  const authProvider = createEntraProxyProvider(tenantId, entraClientId, proxyBaseUrl);
+  const authProvider = createEntraProxyProvider(tenantId, entraClientId, proxyBaseUrl, entraAuthority);
 
   // .well-known endpoints (no auth) — mounted at root by the caller
   const wellKnownRouter = Router();

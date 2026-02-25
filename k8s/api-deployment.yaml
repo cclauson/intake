@@ -31,6 +31,8 @@ spec:
               value: "__ENTRA_CLIENT_ID__"
             - name: PROXY_BASE_URL
               value: "__PROXY_BASE_URL__"
+            - name: ENTRA_AUTHORITY
+              value: "__ENTRA_AUTHORITY__"
           livenessProbe:
             httpGet:
               path: /health

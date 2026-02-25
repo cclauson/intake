@@ -8,8 +8,8 @@ export interface EntraProxyProvider {
   handleAuthServerMetadata(req: Request, res: Response): void;
 }
 
-export function createEntraProxyProvider(tenantId: string, entraClientId: string, proxyBaseUrl: string): EntraProxyProvider {
-  const issuerBaseURL = `https://login.microsoftonline.com/${tenantId}/v2.0`;
+export function createEntraProxyProvider(tenantId: string, entraClientId: string, proxyBaseUrl: string, entraAuthority?: string): EntraProxyProvider {
+  const issuerBaseURL = `${entraAuthority || `https://login.microsoftonline.com/${tenantId}`}/v2.0`;
   const resource = `api://${entraClientId}`;
 
   const jwtCheck = auth({

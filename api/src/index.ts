@@ -13,9 +13,10 @@ app.use(express.json());
 const entraTenantId = process.env.ENTRA_TENANT_ID;
 const entraClientId = process.env.ENTRA_CLIENT_ID;
 const proxyBaseUrl = process.env.PROXY_BASE_URL;
+const entraAuthority = process.env.ENTRA_AUTHORITY;
 
 if (entraTenantId && entraClientId && proxyBaseUrl) {
-  const { mcpRouter, wellKnownRouter } = createMcpRouter(entraTenantId, entraClientId, proxyBaseUrl);
+  const { mcpRouter, wellKnownRouter } = createMcpRouter(entraTenantId, entraClientId, proxyBaseUrl, entraAuthority);
 
   // .well-known must be at the origin root (RFC 8615)
   app.use("/.well-known", wellKnownRouter);
