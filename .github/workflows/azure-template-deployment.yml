@@ -315,18 +315,30 @@ jobs:
         id: api_app
         run: |
           $displayName = "${{ vars.API_APP_DISPLAY_NAME }}"
+          $desiredAudience = "AzureADMyOrg"
 
           # Check if app registration already exists
           $existingApp = az ad app list --display-name $displayName --query "[0]" -o json | ConvertFrom-Json
           if ($existingApp) {
-            $objectId = $existingApp.id
-            $appId = $existingApp.appId
-            Write-Host "API app registration already exists: $appId"
-          } else {
+            # If existing app has wrong signInAudience, delete and recreate
+            # (Entra blocks downgrading from AzureADandPersonalMicrosoftAccount)
+            if ($existingApp.signInAudience -ne $desiredAudience) {
+              Write-Host "signInAudience is '$($existingApp.signInAudience)', need '$desiredAudience' - recreating app"
+              az ad app delete --id $existingApp.appId
+              Start-Sleep -Seconds 10
+              $existingApp = $null
+            } else {
+              $objectId = $existingApp.id
+              $appId = $existingApp.appId
+              Write-Host "API app registration already exists: $appId"
+            }
+          }
+
+          if (-not $existingApp) {
             Write-Host "Creating new API app registration: $displayName"
             @{
               displayName = $displayName
-              signInAudience = "AzureADMyOrg"
+              signInAudience = $desiredAudience
             } | ConvertTo-Json -Depth 5 | Set-Content -Path body.json
             $result = az rest --method POST `
               --uri "https://graph.microsoft.com/v1.0/applications" `
@@ -339,15 +351,6 @@ jobs:
             Write-Host "Waiting for app registration to propagate..."
             Start-Sleep -Seconds 30
           }
-
-          # Ensure signInAudience is correct for CIAM/External ID tenant (idempotent)
-          @{
-            signInAudience = "AzureADMyOrg"
-          } | ConvertTo-Json -Depth 5 | Set-Content -Path body.json
-          az rest --method PATCH `
-            --uri "https://graph.microsoft.com/v1.0/applications/$objectId" `
-            --headers "Content-Type=application/json" `
-            --body "@body.json"
 
           # Set identifier URI (idempotent)
           @{
