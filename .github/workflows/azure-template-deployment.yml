@@ -334,6 +334,10 @@ jobs:
               --body "@body.json" | ConvertFrom-Json
             $objectId = $result.id
             $appId = $result.appId
+
+            # Wait for Entra replication before updating the app
+            Write-Host "Waiting for app registration to propagate..."
+            Start-Sleep -Seconds 30
           }
 
           # Set identifier URI (idempotent)
