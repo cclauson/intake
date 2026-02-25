@@ -326,7 +326,7 @@ jobs:
             Write-Host "Creating new API app registration: $displayName"
             @{
               displayName = $displayName
-              signInAudience = "AzureADandPersonalMicrosoftAccount"
+              signInAudience = "AzureADMyOrg"
             } | ConvertTo-Json -Depth 5 | Set-Content -Path body.json
             $result = az rest --method POST `
               --uri "https://graph.microsoft.com/v1.0/applications" `
@@ -339,6 +339,15 @@ jobs:
             Write-Host "Waiting for app registration to propagate..."
             Start-Sleep -Seconds 30
           }
+
+          # Ensure signInAudience is correct for CIAM/External ID tenant (idempotent)
+          @{
+            signInAudience = "AzureADMyOrg"
+          } | ConvertTo-Json -Depth 5 | Set-Content -Path body.json
+          az rest --method PATCH `
+            --uri "https://graph.microsoft.com/v1.0/applications/$objectId" `
+            --headers "Content-Type=application/json" `
+            --body "@body.json"
 
           # Set identifier URI (idempotent)
           @{
