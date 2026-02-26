@@ -108,7 +108,7 @@ jobs:
           $credential = $null
           for ($i = 1; $i -le 3; $i++) {
             Start-Sleep -Seconds 5
-            $credential = az ad app credential reset --id $appId --query password -o tsv 2>&1
+            $credential = az ad app credential reset --id $appId --query password -o tsv
             if ($LASTEXITCODE -eq 0) { break }
             Write-Host "Credential reset attempt $i failed, retrying..."
           }
