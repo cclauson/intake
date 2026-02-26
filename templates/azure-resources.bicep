@@ -126,9 +126,6 @@ module apiContainerApp 'modules/container-app.bicep' = {
       { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: apiAppInsightsConnectionString }
     ]
   }
-  dependsOn: [
-    acr
-  ]
 }
 
 // UX Container App (ACR image)
@@ -146,9 +143,6 @@ module uxContainerApp 'modules/container-app.bicep' = {
       { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: uxAppInsightsConnectionString }
     ]
   }
-  dependsOn: [
-    acr
-  ]
 }
 
 // ACR Pull role assignments for API and UX container apps
@@ -157,29 +151,23 @@ resource acrResource 'Microsoft.ContainerRegistry/registries@2023-07-01' existin
 }
 
 resource apiAcrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acrResource.id, apiContainerApp.outputs.name, 'acrpull')
+  name: guid(acrResource.id, 'vnext-api', 'acrpull')
   scope: acrResource
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
     principalId: apiContainerApp.outputs.principalId
     principalType: 'ServicePrincipal'
   }
-  dependsOn: [
-    acr
-  ]
 }
 
 resource uxAcrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acrResource.id, uxContainerApp.outputs.name, 'acrpull')
+  name: guid(acrResource.id, 'vnext-ux', 'acrpull')
   scope: acrResource
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
     principalId: uxContainerApp.outputs.principalId
     principalType: 'ServicePrincipal'
   }
-  dependsOn: [
-    acr
-  ]
 }
 
 output acrLoginServer string = acr.outputs.acrLoginServer
