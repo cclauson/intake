@@ -151,7 +151,7 @@ jobs:
 
       - name: Force New Auth Proxy Revision
         run: |
-          # ACA doesn't create a new revision when only secret values change.
+          # ACA updates secret values but doesn't create a new revision.
           # Force one so the container picks up the fresh client secret.
           $suffix = "deploy-" + (Get-Date -Format "yyyyMMddHHmmss")
           az containerapp update `
