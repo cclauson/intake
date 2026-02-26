@@ -216,17 +216,42 @@ jobs:
             -o tsv
           Write-Host "Container App FQDN: $fqdn"
           echo "FQDN=$fqdn" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+          $verificationId = az containerapp show `
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
+            --name auth-proxy `
+            --query "properties.customDomainVerificationId" `
+            -o tsv
+          Write-Host "Domain Verification ID: $verificationId"
+          echo "VERIFICATION_ID=$verificationId" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+          $envName = az containerapp show `
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
+            --name auth-proxy `
+            --query "properties.managedEnvironmentId" `
+            -o tsv
+          $envName = $envName.Split('/')[-1]
+          echo "ENV_NAME=$envName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
         shell: pwsh
 
-      - name: Create Auth Proxy CNAME Record
+      - name: Create Auth Proxy DNS Records
         run: |
           $customDomain = "${{ vars.PROXY_CUSTOM_DOMAIN_NAME }}"
           $subdomain = $customDomain.Split('.')[0]
+
+          # CNAME record: auth → ACA FQDN
           az network dns record-set cname set-record `
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
             --zone-name ${{ vars.DNS_ZONE_NAME }} `
             --record-set-name $subdomain `
             --cname ${{ steps.container_app.outputs.FQDN }}
+
+          # TXT record: asuid.auth → domain verification ID
+          az network dns record-set txt add-record `
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
+            --zone-name ${{ vars.DNS_ZONE_NAME }} `
+            --record-set-name "asuid.$subdomain" `
+            --value ${{ steps.container_app.outputs.VERIFICATION_ID }}
         shell: pwsh
 
       - name: Bind Custom Domain to Container App
@@ -240,6 +265,7 @@ jobs:
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
             --name auth-proxy `
             --hostname $customDomain `
+            --environment ${{ steps.container_app.outputs.ENV_NAME }} `
             --validation-method CNAME
         shell: pwsh
 
