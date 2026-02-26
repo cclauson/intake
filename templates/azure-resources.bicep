@@ -107,15 +107,13 @@ module authProxyContainerApp 'modules/container-app.bicep' = {
   }
 }
 
-// API Container App (ACR image)
+// API Container App (placeholder image on initial deploy, real ACR image set by app deploy workflow)
 module apiContainerApp 'modules/container-app.bicep' = {
   name: 'apiContainerAppDeployment'
   params: {
     containerAppName: 'vnext-api'
     containerAppEnvId: containerAppEnv.id
     image: apiImage
-    registryServer: acr.outputs.acrLoginServer
-    registryIdentity: 'system'
     envVars: [
       { name: 'PORT', value: '3000' }
       { name: 'DATABASE_URL', value: apiDatabaseUrl }
@@ -128,45 +126,18 @@ module apiContainerApp 'modules/container-app.bicep' = {
   }
 }
 
-// UX Container App (ACR image)
+// UX Container App (placeholder image on initial deploy, real ACR image set by app deploy workflow)
 module uxContainerApp 'modules/container-app.bicep' = {
   name: 'uxContainerAppDeployment'
   params: {
     containerAppName: 'vnext-ux'
     containerAppEnvId: containerAppEnv.id
     image: uxImage
-    registryServer: acr.outputs.acrLoginServer
-    registryIdentity: 'system'
     maxReplicas: 3
     envVars: [
       { name: 'PORT', value: '3000' }
       { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: uxAppInsightsConnectionString }
     ]
-  }
-}
-
-// ACR Pull role assignments for API and UX container apps
-resource acrResource 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-  name: acrName
-}
-
-resource apiAcrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acrResource.id, 'vnext-api', 'acrpull')
-  scope: acrResource
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
-    principalId: apiContainerApp.outputs.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-resource uxAcrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acrResource.id, 'vnext-ux', 'acrpull')
-  scope: acrResource
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
-    principalId: uxContainerApp.outputs.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 

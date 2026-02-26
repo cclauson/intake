@@ -105,6 +105,41 @@ jobs:
             -t "$TAG" ./ux
           docker push "$TAG"
 
+      - name: Configure ACR Access for Container Apps
+        run: |
+          ACR_SERVER="${{ steps.acr_info.outputs.ACR_LOGIN_SERVER }}"
+          ACR_NAME="${{ steps.unique_names.outputs.acrName }}"
+          RG="${{ vars.AZURE_RESOURCE_GROUP }}"
+
+          for APP_NAME in vnext-api vnext-ux; do
+            # Enable system-assigned managed identity
+            az containerapp identity assign \
+              --resource-group "$RG" \
+              --name "$APP_NAME" \
+              --system-assigned
+
+            # Get the principal ID
+            PRINCIPAL_ID=$(az containerapp identity show \
+              --resource-group "$RG" \
+              --name "$APP_NAME" \
+              --query principalId -o tsv)
+
+            # Grant AcrPull role
+            ACR_ID=$(az acr show --name "$ACR_NAME" --resource-group "$RG" --query id -o tsv)
+            az role assignment create \
+              --assignee-object-id "$PRINCIPAL_ID" \
+              --assignee-principal-type ServicePrincipal \
+              --role AcrPull \
+              --scope "$ACR_ID" || true
+
+            # Configure registry on the container app
+            az containerapp registry set \
+              --resource-group "$RG" \
+              --name "$APP_NAME" \
+              --server "$ACR_SERVER" \
+              --identity system
+          done
+
       - name: Get API Container App FQDN
         id: api_container
         run: |

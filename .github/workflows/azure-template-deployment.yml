@@ -130,7 +130,6 @@ jobs:
 
       - name: Deploy Azure Resources
         run: |
-          $acrLoginServer = "${{ steps.unique_names.outputs.acrName }}.azurecr.io"
           az deployment group create `
             --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} `
             --template-file ./templates/azure-resources.bicep `
@@ -147,8 +146,8 @@ jobs:
                          proxyEntraClientId=${{ steps.proxy_app.outputs.APP_ID }} `
                          proxyEntraClientSecret=${{ steps.proxy_app.outputs.CLIENT_SECRET }} `
                          proxyEntraAuthority="https://${{ vars.EXTERNAL_ID_TENANT_SUBDOMAIN }}.ciamlogin.com/${{ secrets.EXTERNAL_ID_TENANT_ID }}" `
-                         apiImage="${acrLoginServer}/vnext-api:init" `
-                         uxImage="${acrLoginServer}/vnext-ux:init"
+                         apiImage="mcr.microsoft.com/k8se/quickstart:latest" `
+                         uxImage="mcr.microsoft.com/k8se/quickstart:latest"
         shell: pwsh
 
       - name: Force New Auth Proxy Revision
