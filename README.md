@@ -1,13 +1,13 @@
-# vnext-k8s-azure
+# Intake
 
-An Express.js application deployed to Azure Kubernetes Service (AKS) using Infrastructure as Code (IaC) with Bicep templates and GitHub Actions.
+A nutrition tracking application with an MCP server, deployed to Azure Container Apps.
 
 ## Architecture
 
-- **Backend**: Express.js + TypeScript
-- **Container Runtime**: Azure Kubernetes Service (AKS)
-- **Container Registry**: Azure Container Registry (ACR)
-- **Ingress**: NGINX Ingress Controller
+- **API**: Express.js + TypeScript, Prisma ORM (PostgreSQL), MCP server
+- **UX**: Next.js 15, React 19, MSAL authentication, Tailwind CSS
+- **Auth**: Entra External ID (CIAM) with OAuth 2.0 proxy for MCP clients
+- **Infrastructure**: Azure Container Apps, Front Door, PostgreSQL Flexible Server, Application Insights
 - **IaC**: Bicep templates
 - **CI/CD**: GitHub Actions
 
@@ -17,25 +17,85 @@ An Express.js application deployed to Azure Kubernetes Service (AKS) using Infra
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 - [GitHub CLI](https://cli.github.com/)
 - [Docker](https://www.docker.com/) (for local container testing)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) (for Kubernetes management)
 - Azure subscription with appropriate permissions
 
 ## Local Development
 
+### API
+
 ```bash
-cd app
+cd api
+npm install
+npx prisma generate
+npm run dev
+```
+
+Runs at http://localhost:3000. Key endpoints:
+- `/api` — service info
+- `/api/items` — CRUD operations
+- `/api/mcp` — MCP transport (requires Entra config)
+- `/health` — health check
+
+### UX
+
+```bash
+cd ux
 npm install
 npm run dev
 ```
 
-Opens http://localhost:3000. Returns `{"message":"Hello World"}`.
+Runs at http://localhost:3001.
 
-### Local Docker Testing
+## Project Structure
 
-```bash
-cd app
-docker build -t vnext-app .
-docker run -p 3000:3000 vnext-app
+```
+intake/
+├── .github/
+│   ├── actions/
+│   │   ├── azure-login/              # Reusable Azure authentication
+│   │   └── create-unique-names/      # Deterministic resource naming
+│   └── workflows/
+│       ├── azure-template-deployment.yml  # Infrastructure deployment
+│       └── azure-deploy-app.yml           # Application deployment
+├── api/                              # Express.js API + MCP server
+│   ├── src/
+│   │   ├── index.ts                  # Server entry point & routes
+│   │   ├── mcp.ts                    # MCP server (nutrition tracking tools)
+│   │   ├── telemetry.ts              # Application Insights
+│   │   └── auth/
+│   │       └── entra-proxy.ts        # OAuth 2.0 JWT validation
+│   ├── prisma/
+│   │   └── schema.prisma             # Data models (Item, Metric, MetricEntry)
+│   ├── Dockerfile
+│   └── package.json
+├── ux/                               # Next.js frontend
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx              # Landing page
+│   │   │   ├── app/page.tsx          # Authenticated app page
+│   │   │   └── health/route.ts       # Health check
+│   │   ├── components/
+│   │   │   ├── AppInsightsProvider.tsx
+│   │   │   └── MsalAuthWrapper.tsx   # MSAL auth context
+│   │   └── lib/
+│   │       └── authConfig.ts         # MSAL configuration
+│   ├── Dockerfile
+│   └── package.json
+├── templates/                        # Bicep IaC templates
+│   ├── resourceGroup.bicep
+│   ├── azure-resources.bicep
+│   ├── front-door-resources.bicep
+│   └── modules/
+│       ├── acr.bicep                 # Azure Container Registry
+│       ├── container-app.bicep       # Container Apps
+│       ├── dns-zone.bicep            # DNS zone
+│       ├── front-door.bicep          # Front Door CDN/WAF
+│       ├── monitoring.bicep          # Log Analytics + App Insights
+│       └── postgresql.bicep          # PostgreSQL Flexible Server
+└── tools/                            # Utility scripts
+    ├── ArmUniqueStringGenerator.ps1
+    ├── SetAfdDnsValidation.ps1
+    └── SetupExternalIdTenant.ps1
 ```
 
 ## GitHub Actions Workflows
@@ -45,23 +105,14 @@ docker run -p 3000:3000 vnext-app
 **File**: `.github/workflows/azure-template-deployment.yml`
 **Trigger**: Manual (`workflow_dispatch`)
 
-Deploys Azure infrastructure:
-- Resource Group
-- Azure Container Registry (ACR)
-- Azure Kubernetes Service (AKS) with ACR pull permissions
-- NGINX Ingress Controller
-- Application namespace
+Deploys Azure infrastructure: resource group, Container Registry, Container Apps environment, PostgreSQL, Front Door, DNS, and monitoring.
 
 ### Azure App Deployment
 
 **File**: `.github/workflows/azure-deploy-app.yml`
 **Trigger**: Manual (`workflow_dispatch`)
 
-Builds and deploys the application:
-- Builds Docker image from `app/`
-- Pushes to ACR
-- Deploys Kubernetes manifests to AKS
-- Waits for rollout completion
+Builds Docker images for API and UX, pushes to ACR, and deploys to Container Apps.
 
 ## Configuration
 
@@ -81,70 +132,8 @@ Builds and deploys the application:
 | `AZURE_RESOURCE_GROUP` | Azure resource group name | `VNextK8s` |
 | `AZURE_LOCATION` | Azure region | `centralus` |
 
-### Setting Variables/Secrets
-
-```bash
-# Variables
-gh variable set AZURE_RESOURCE_GROUP --body "VNextK8s"
-gh variable set AZURE_LOCATION --body "centralus"
-
-# Secrets (you'll be prompted for values)
-gh secret set AZURE_DEPLOY_CLIENT_ID
-gh secret set AZURE_DEPLOY_CLIENT_SECRET
-gh secret set AZURE_DEPLOY_SUBSCRIPTION_ID
-gh secret set AZURE_DEPLOY_TENANT_ID
-```
-
-## Project Structure
-
-```
-vnext-k8s-azure/
-├── .github/
-│   ├── actions/
-│   │   ├── azure-login/          # Reusable Azure authentication
-│   │   └── create-unique-names/  # Deterministic resource naming
-│   └── workflows/
-│       ├── azure-template-deployment.yml  # Infrastructure deployment
-│       └── azure-deploy-app.yml           # Application deployment
-├── app/                          # Express.js application
-│   ├── src/
-│   │   └── index.ts              # Server entry point
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── Dockerfile
-│   └── .dockerignore
-├── k8s/                          # Kubernetes manifests
-│   ├── namespace.yaml
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   └── ingress.yaml
-├── templates/                    # Bicep IaC templates
-│   ├── resourceGroup.bicep
-│   ├── azure-resources.bicep
-│   └── modules/
-│       ├── acr.bicep
-│       └── aks.bicep
-└── tools/                        # Utility scripts
-    ├── ArmUniqueStringGenerator.ps1
-    └── InstallNginxIngress.ps1
-```
-
 ## Deployment
 
-### Initial Setup
-
 1. Configure GitHub secrets and variables (see Configuration section)
-
-2. Deploy infrastructure:
-   - Go to Actions > "Azure Template Deployment" > Run workflow
-
-3. Deploy the application:
-   - Go to Actions > "Azure App Deployment" > Run workflow
-
-4. Get the ingress external IP:
-   ```bash
-   az aks get-credentials --resource-group <your-rg> --name <aks-name>
-   kubectl get svc -n ingress-nginx
-   ```
-
-5. Test: `curl http://<EXTERNAL-IP>/`
+2. Deploy infrastructure: Actions > "Azure Template Deployment" > Run workflow
+3. Deploy the application: Actions > "Azure App Deployment" > Run workflow
