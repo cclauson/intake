@@ -310,7 +310,6 @@ $permissions = @{
     "Application.ReadWrite.All"              = "1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9"
     "DelegatedPermissionGrant.ReadWrite.All"  = "8e8e4742-1d95-4f68-9d56-6ee75648c72a"
     "EventListener.ReadWrite.All"             = "0edf5e9e-4ce8-468a-8432-d08631d18c43"
-    "IdentityProvider.ReadWrite.All"          = "90db2b9a-d571-4f1c-9c8b-3e5ea5e22643"
 }
 
 $ErrorActionPreference = "SilentlyContinue"
