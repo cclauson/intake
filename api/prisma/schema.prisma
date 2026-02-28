@@ -7,11 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Item {
-  id   Int    @id @default(autoincrement())
-  name String
-}
-
 enum Resolution {
   daily
   timestamped
@@ -49,4 +44,97 @@ model MetricEntry {
 
   @@unique([metricId, date])
   @@index([metricId, date])
+}
+
+enum NutritionSource {
+  verified
+  estimated
+  unknown
+}
+
+model NutritionalDataItem {
+  id              String            @id @default(uuid())
+  userId          String
+  name            String
+  baseUnit        String            // "1 oz", "1 medium apple"
+  defaultServings String[]          // ["16 oz (1 lb)", "32 oz (2 lb)"]
+  calories        Float?
+  protein         Float?            // grams
+  fat             Float?            // grams
+  carbs           Float?            // grams
+  fiber           Float?            // grams
+  sugar           Float?            // grams
+  sodium          Float?            // milligrams
+  source          NutritionSource   @default(unknown)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  mealSchemaIngredients MealSchemaIngredient[]
+  mealLogItems          MealLogItem[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model MealSchema {
+  id          String                 @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  ingredients MealSchemaIngredient[]
+  mealLogEntries MealLogEntry[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model MealSchemaIngredient {
+  id                    String              @id @default(uuid())
+  mealSchemaId          String
+  mealSchema            MealSchema          @relation(fields: [mealSchemaId], references: [id], onDelete: Cascade)
+  nutritionalDataItemId String
+  nutritionalDataItem   NutritionalDataItem @relation(fields: [nutritionalDataItemId], references: [id], onDelete: Cascade)
+  defaultQuantity       Float?              // null = prompt user at log time
+  createdAt             DateTime            @default(now())
+
+  @@unique([mealSchemaId, nutritionalDataItemId])
+  @@index([mealSchemaId])
+}
+
+model MealLogEntry {
+  id            String       @id @default(uuid())
+  userId        String
+  mealSchemaId  String?
+  mealSchema    MealSchema?  @relation(fields: [mealSchemaId], references: [id], onDelete: SetNull)
+  loggedAt      DateTime     @default(now())
+  timeOfDay     String?      // "breakfast", "lunch", "dinner", "snack"
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  items         MealLogItem[]
+
+  @@index([userId, loggedAt])
+  @@index([userId])
+}
+
+model MealLogItem {
+  id                    String               @id @default(uuid())
+  mealLogEntryId        String
+  mealLogEntry          MealLogEntry         @relation(fields: [mealLogEntryId], references: [id], onDelete: Cascade)
+  nutritionalDataItemId String?              // null for anonymous items
+  nutritionalDataItem   NutritionalDataItem? @relation(fields: [nutritionalDataItemId], references: [id], onDelete: SetNull)
+  quantity              Float?
+  // Snapshotted macros (always populated at log time, source of truth for queries)
+  name                  String?              // food name or anonymous description
+  calories              Float?
+  protein               Float?
+  fat                   Float?
+  carbs                 Float?
+  fiber                 Float?
+  sugar                 Float?
+  sodium                Float?
+  createdAt             DateTime             @default(now())
+
+  @@index([mealLogEntryId])
 }
