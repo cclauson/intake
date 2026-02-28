@@ -92,7 +92,8 @@ module authProxyContainerApp 'modules/container-app.bicep' = {
     containerAppName: 'auth-proxy'
     containerAppEnvId: containerAppEnv.id
     image: proxyImage
-    maxReplicas: 3
+    minReplicas: 4
+    maxReplicas: 4
     secrets: [
       {
         name: 'entra-client-secret'
@@ -122,7 +123,8 @@ module apiContainerApp 'modules/container-app.bicep' = {
     containerAppName: 'vnext-api'
     containerAppEnvId: containerAppEnv.id
     image: apiImage
-    maxReplicas: 3
+    minReplicas: 4
+    maxReplicas: 4
     stickySessionsAffinity: 'sticky'
     envVars: [
       { name: 'PORT', value: '3000' }
