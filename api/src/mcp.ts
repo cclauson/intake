@@ -380,7 +380,7 @@ function createMcpServer(prisma: PrismaClient): McpServer {
         }),
       ])).optional().describe('Additional or ad-hoc items'),
       timeOfDay: z.enum(['breakfast', 'lunch', 'dinner', 'snack']).optional().describe('Meal type'),
-      loggedAt: z.string().optional().describe('ISO datetime or YYYY-MM-DD (defaults to now)'),
+      loggedAt: z.string().describe('ISO datetime or YYYY-MM-DD (defaults to noon UTC if date-only)'),
       notes: z.string().optional().describe('Optional notes'),
     },
     async ({ mealSchemaName, items, timeOfDay, loggedAt, notes }, extra) => {
@@ -421,10 +421,7 @@ function createMcpServer(prisma: PrismaClient): McpServer {
       }
 
       // Parse loggedAt
-      let loggedAtDate: Date | undefined;
-      if (loggedAt) {
-        loggedAtDate = new Date(loggedAt.length === 10 ? loggedAt + 'T12:00:00.000Z' : loggedAt);
-      }
+      const loggedAtDate = new Date(loggedAt.length === 10 ? loggedAt + 'T12:00:00.000Z' : loggedAt);
 
       // Build log items
       const logItems: Array<{
@@ -522,6 +519,28 @@ function createMcpServer(prisma: PrismaClient): McpServer {
     },
   );
 
+  // --- delete_meal ---
+  server.tool(
+    'delete_meal',
+    'Delete a logged meal entry and all its items by ID. Use get_meal_log to find entry IDs.',
+    {
+      id: z.string().describe('Meal log entry ID to delete'),
+    },
+    async ({ id }, extra) => {
+      const userId = getUserId(extra);
+      const entry = await prisma.mealLogEntry.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+      if (!entry || entry.userId !== userId) {
+        return { content: [{ type: 'text' as const, text: `No meal entry with ID "${id}" found.` }], isError: true };
+      }
+      await prisma.mealLogEntry.delete({ where: { id } });
+      const totalCal = entry.items.reduce((sum, li) => sum + (li.calories ?? 0), 0);
+      return { content: [{ type: 'text' as const, text: `Deleted meal from ${entry.loggedAt.toISOString().slice(0, 16)} (${entry.items.length} item(s), ${Math.round(totalCal)} cal).` }] };
+    },
+  );
+
   // --- get_meal_log ---
   server.tool(
     'get_meal_log',
@@ -559,7 +578,7 @@ function createMcpServer(prisma: PrismaClient): McpServer {
 
       for (const entry of entries) {
         const time = entry.loggedAt.toISOString().slice(0, 16);
-        const header = [time, entry.timeOfDay, entry.mealSchema?.name ? `(${entry.mealSchema.name})` : null].filter(Boolean).join(' ');
+        const header = [`[${entry.id}]`, time, entry.timeOfDay, entry.mealSchema?.name ? `(${entry.mealSchema.name})` : null].filter(Boolean).join(' ');
         lines.push(header);
 
         for (const item of entry.items) {
