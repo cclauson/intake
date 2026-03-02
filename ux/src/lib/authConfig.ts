@@ -15,7 +15,7 @@ export const msalConfig: Configuration = {
     redirectUri: typeof window !== "undefined" ? window.location.origin + "/app" : "/app",
   },
   cache: {
-    cacheLocation: "sessionStorage",
+    cacheLocation: "localStorage",
   },
   system: {
     loggerOptions: {
@@ -26,7 +26,7 @@ export const msalConfig: Configuration = {
 };
 
 export const loginRequest = {
-  scopes: ["openid", "profile"],
+  scopes: ["openid", "profile", "offline_access"],
 };
 
 const apiScope = process.env.NEXT_PUBLIC_API_SCOPE ?? "";
