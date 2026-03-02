@@ -44,7 +44,7 @@ export function createEntraAuthProvider(tenantId: string, entraClientId: string,
         resource,
         authorization_servers: [proxyBaseUrl],
         bearer_methods_supported: ['header'],
-        scopes_supported: ['openid', 'profile', `${resource}/mcp.access`],
+        scopes_supported: ['openid', 'profile', 'offline_access', `${resource}/mcp.access`],
       });
     },
 
@@ -58,7 +58,7 @@ export function createEntraAuthProvider(tenantId: string, entraClientId: string,
         grant_types_supported: ['authorization_code'],
         token_endpoint_auth_methods_supported: ['client_secret_post'],
         code_challenge_methods_supported: ['S256'],
-        scopes_supported: ['openid', 'profile', `${resource}/mcp.access`],
+        scopes_supported: ['openid', 'profile', 'offline_access', `${resource}/mcp.access`],
       });
     },
   };
