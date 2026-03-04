@@ -1,6 +1,12 @@
 "use client";
 
-import { LineChart, Line, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 interface MetricEntry {
   date: string;
@@ -16,19 +22,39 @@ interface Metric {
   entries: MetricEntry[];
 }
 
-function NumericSparkline({ entries }: { entries: MetricEntry[] }) {
+function NumericSparkline({
+  entries,
+  unit,
+}: {
+  entries: MetricEntry[];
+  unit: string | null;
+}) {
   const ascending = [...entries].reverse();
-  const data = ascending.map((e) => ({ value: e.value ?? 0 }));
+  const data = ascending.map((e) => ({
+    date: e.date,
+    value: e.value ?? 0,
+  }));
 
   return (
     <ResponsiveContainer width="100%" height={80}>
       <LineChart data={data}>
+        <YAxis domain={["dataMin", "dataMax"]} hide />
+        <Tooltip
+          formatter={(v: unknown) => `${v}${unit ? ` ${unit}` : ""}`}
+          labelFormatter={(label) => `${label}`}
+          contentStyle={{
+            fontSize: 12,
+            borderRadius: 8,
+            border: "1px solid #e5e7eb",
+          }}
+        />
         <Line
           type="monotone"
           dataKey="value"
           stroke="#14b8a6"
           strokeWidth={2}
           dot={false}
+          activeDot={{ r: 4 }}
         />
       </LineChart>
     </ResponsiveContainer>
@@ -55,7 +81,7 @@ export default function MetricCard({ metric }: { metric: Metric }) {
             {latest?.value ?? "-"}
           </p>
           {metric.entries.length > 1 && (
-            <NumericSparkline entries={metric.entries} />
+            <NumericSparkline entries={metric.entries} unit={metric.unit} />
           )}
         </>
       ) : (
