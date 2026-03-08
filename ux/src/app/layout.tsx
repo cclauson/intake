@@ -5,6 +5,9 @@ import AppInsightsProvider from "../components/AppInsightsProvider";
 export const metadata: Metadata = {
   title: "Intake",
   description: "Track nutrition through conversation.",
+  verification: {
+    google: "S8OqtikQPY8UCnYxUL1hhp0g5a1k7rBx4q7B9OTcIEo",
+  },
 };
 
 export default function RootLayout({
