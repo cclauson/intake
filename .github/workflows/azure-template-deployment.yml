@@ -324,8 +324,8 @@ jobs:
             @{
               spa = @{
                 redirectUris = @(
-                  "https://${customDomain}/app",
-                  "http://localhost:3000/app"
+                  "https://${customDomain}/",
+                  "http://localhost:3000/"
                 )
               }
             } | ConvertTo-Json -Depth 5 | Set-Content -Path body.json
@@ -340,8 +340,8 @@ jobs:
               signInAudience = "AzureADandPersonalMicrosoftAccount"
               spa = @{
                 redirectUris = @(
-                  "https://${customDomain}/app",
-                  "http://localhost:3000/app"
+                  "https://${customDomain}/",
+                  "http://localhost:3000/"
                 )
               }
             } | ConvertTo-Json -Depth 5 | Set-Content -Path body.json
