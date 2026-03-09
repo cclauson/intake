@@ -12,7 +12,7 @@ export const msalConfig: Configuration = {
     clientId,
     authority,
     knownAuthorities: authority ? [new URL(authority).hostname] : [],
-    redirectUri: typeof window !== "undefined" ? window.location.origin + "/app" : "/app",
+    redirectUri: typeof window !== "undefined" ? window.location.origin + "/" : "/",
   },
   cache: {
     cacheLocation: "localStorage",
