@@ -42,8 +42,11 @@ export function NutritionChartSkeleton() {
   );
 }
 
-const CALORIE_TICKS = [500, 1000, 1500, 2000, 2500];
-const PROTEIN_TICKS = [50, 100, 150, 200];
+function makeTicks(step: number, max: number): number[] {
+  const ticks: number[] = [];
+  for (let v = step; v <= max; v += step) ticks.push(v);
+  return ticks;
+}
 
 export default function NutritionChart() {
   const { apiFetch } = useApiFetch();
@@ -75,10 +78,14 @@ export default function NutritionChart() {
   }));
 
   const maxCalories = Math.max(...chartData.map((d) => d.calories));
-  const calorieDomain: [number, number] = [0, Math.max(maxCalories * 1.1, 500)];
+  const calorieCeil = Math.max(Math.ceil((maxCalories * 1.1) / 500) * 500, 500);
+  const calorieDomain: [number, number] = [0, calorieCeil];
+  const calorieTicks = makeTicks(500, calorieCeil);
 
   const maxProtein = Math.max(...chartData.map((d) => d.protein));
-  const proteinDomain: [number, number] = [0, Math.max(maxProtein * 1.1, 50)];
+  const proteinCeil = Math.max(Math.ceil((maxProtein * 1.1) / 50) * 50, 50);
+  const proteinDomain: [number, number] = [0, proteinCeil];
+  const proteinTicks = makeTicks(50, proteinCeil);
 
   const tooltipStyle = {
     fontSize: 12,
@@ -102,14 +109,14 @@ export default function NutritionChart() {
             />
             <YAxis
               domain={calorieDomain}
-              ticks={CALORIE_TICKS.filter((t) => t <= calorieDomain[1])}
+              ticks={calorieTicks}
               tick={{ fontSize: 12, fill: "#9ca3af" }}
               axisLine={false}
               tickLine={false}
               width={45}
             />
             <Tooltip contentStyle={tooltipStyle} />
-            {CALORIE_TICKS.filter((t) => t <= calorieDomain[1]).map((t) => (
+            {calorieTicks.map((t) => (
               <ReferenceLine
                 key={t}
                 y={t}
@@ -143,14 +150,14 @@ export default function NutritionChart() {
             />
             <YAxis
               domain={proteinDomain}
-              ticks={PROTEIN_TICKS.filter((t) => t <= proteinDomain[1])}
+              ticks={proteinTicks}
               tick={{ fontSize: 12, fill: "#9ca3af" }}
               axisLine={false}
               tickLine={false}
               width={35}
             />
             <Tooltip contentStyle={tooltipStyle} />
-            {PROTEIN_TICKS.filter((t) => t <= proteinDomain[1]).map((t) => (
+            {proteinTicks.map((t) => (
               <ReferenceLine
                 key={t}
                 y={t}
