@@ -3,6 +3,7 @@
 import {
   LineChart,
   Line,
+  XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
@@ -31,17 +32,32 @@ function NumericSparkline({
 }) {
   const ascending = [...entries].reverse();
   const data = ascending.map((e) => ({
+    ts: new Date(e.date + "T12:00:00Z").getTime(),
     date: e.date,
     value: e.value ?? 0,
   }));
 
+  const formatDate = (ts: number) => {
+    const d = new Date(ts);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  };
+
   return (
     <ResponsiveContainer width="100%" height={80}>
       <LineChart data={data}>
+        <XAxis
+          dataKey="ts"
+          type="number"
+          domain={["dataMin", "dataMax"]}
+          tickFormatter={formatDate}
+          tick={{ fontSize: 10, fill: "#9ca3af" }}
+          axisLine={false}
+          tickLine={false}
+        />
         <YAxis domain={["dataMin", "dataMax"]} hide />
         <Tooltip
           formatter={(v: unknown) => `${v}${unit ? ` ${unit}` : ""}`}
-          labelFormatter={(label) => `${label}`}
+          labelFormatter={(ts) => formatDate(ts as number)}
           contentStyle={{
             fontSize: 12,
             borderRadius: 8,
