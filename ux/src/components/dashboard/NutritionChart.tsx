@@ -9,6 +9,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import { useApiFetch } from "../../lib/useApiFetch";
 
@@ -41,6 +42,9 @@ export function NutritionChartSkeleton() {
   );
 }
 
+const CALORIE_TICKS = [500, 1000, 1500, 2000, 2500];
+const PROTEIN_TICKS = [50, 100, 150, 200];
+
 export default function NutritionChart() {
   const { apiFetch } = useApiFetch();
   const [data, setData] = useState<NutritionHistoryResponse | null>(null);
@@ -70,60 +74,101 @@ export default function NutritionChart() {
     label: formatDay(d.date),
   }));
 
+  const maxCalories = Math.max(...chartData.map((d) => d.calories));
+  const calorieDomain: [number, number] = [0, Math.max(maxCalories * 1.1, 500)];
+
+  const maxProtein = Math.max(...chartData.map((d) => d.protein));
+  const proteinDomain: [number, number] = [0, Math.max(maxProtein * 1.1, 50)];
+
+  const tooltipStyle = {
+    fontSize: 12,
+    borderRadius: 8,
+    border: "1px solid #e5e7eb",
+  };
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5">
-      <h3 className="text-sm font-medium text-gray-900 mb-4">7-Day Trend</h3>
-      <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 12, fill: "#9ca3af" }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            yAxisId="calories"
-            tick={{ fontSize: 12, fill: "#9ca3af" }}
-            axisLine={false}
-            tickLine={false}
-            width={45}
-          />
-          <YAxis
-            yAxisId="protein"
-            orientation="right"
-            tick={{ fontSize: 12, fill: "#9ca3af" }}
-            axisLine={false}
-            tickLine={false}
-            width={35}
-          />
-          <Tooltip
-            contentStyle={{
-              fontSize: 12,
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-            }}
-          />
-          <Line
-            yAxisId="calories"
-            type="monotone"
-            dataKey="calories"
-            stroke="#14b8a6"
-            strokeWidth={2}
-            dot={false}
-            name="Calories (kcal)"
-          />
-          <Line
-            yAxisId="protein"
-            type="monotone"
-            dataKey="protein"
-            stroke="#6b7280"
-            strokeWidth={2}
-            dot={false}
-            name="Protein (g)"
-          />
-        </LineChart>
-      </ResponsiveContainer>
+    <div className="space-y-4">
+      {/* Calories chart */}
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <h3 className="text-sm font-medium text-gray-900 mb-4">Calories (7 days)</h3>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 12, fill: "#9ca3af" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              domain={calorieDomain}
+              ticks={CALORIE_TICKS.filter((t) => t <= calorieDomain[1])}
+              tick={{ fontSize: 12, fill: "#9ca3af" }}
+              axisLine={false}
+              tickLine={false}
+              width={45}
+            />
+            <Tooltip contentStyle={tooltipStyle} />
+            {CALORIE_TICKS.filter((t) => t <= calorieDomain[1]).map((t) => (
+              <ReferenceLine
+                key={t}
+                y={t}
+                stroke="#e5e7eb"
+                strokeDasharray="3 3"
+              />
+            ))}
+            <Line
+              type="monotone"
+              dataKey="calories"
+              stroke="#14b8a6"
+              strokeWidth={2}
+              dot={false}
+              name="Calories (kcal)"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Protein chart */}
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <h3 className="text-sm font-medium text-gray-900 mb-4">Protein (7 days)</h3>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 12, fill: "#9ca3af" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              domain={proteinDomain}
+              ticks={PROTEIN_TICKS.filter((t) => t <= proteinDomain[1])}
+              tick={{ fontSize: 12, fill: "#9ca3af" }}
+              axisLine={false}
+              tickLine={false}
+              width={35}
+            />
+            <Tooltip contentStyle={tooltipStyle} />
+            {PROTEIN_TICKS.filter((t) => t <= proteinDomain[1]).map((t) => (
+              <ReferenceLine
+                key={t}
+                y={t}
+                stroke="#e5e7eb"
+                strokeDasharray="3 3"
+              />
+            ))}
+            <Line
+              type="monotone"
+              dataKey="protein"
+              stroke="#6b7280"
+              strokeWidth={2}
+              dot={false}
+              name="Protein (g)"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
