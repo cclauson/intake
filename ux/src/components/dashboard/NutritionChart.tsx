@@ -52,15 +52,24 @@ export default function NutritionChart() {
   const { apiFetch } = useApiFetch();
   const [data, setData] = useState<NutritionHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch<NutritionHistoryResponse>("/api/dashboard/nutrition-history?days=7")
       .then(setData)
-      .catch(() => {})
+      .catch((e) => setError(e.message ?? "Failed to load nutrition history"))
       .finally(() => setLoading(false));
   }, [apiFetch]);
 
   if (loading) return <NutritionChartSkeleton />;
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <p className="text-sm text-red-500">Error loading nutrition data: {error}</p>
+      </div>
+    );
+  }
 
   const hasData = data?.series.some((d) => d.calories > 0 || d.protein > 0);
   if (!data || !hasData) {

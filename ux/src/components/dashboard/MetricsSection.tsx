@@ -46,15 +46,20 @@ export default function MetricsSection() {
   const { apiFetch } = useApiFetch();
   const [data, setData] = useState<MetricsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch<MetricsResponse>("/api/dashboard/metrics")
       .then(setData)
-      .catch(() => {})
+      .catch((e) => setError(e.message ?? "Failed to load metrics"))
       .finally(() => setLoading(false));
   }, [apiFetch]);
 
   if (loading) return <MetricsSkeleton />;
+
+  if (error) {
+    return <p className="text-sm text-red-500">Error loading metrics: {error}</p>;
+  }
 
   if (!data || data.metrics.length === 0) {
     return <p className="text-sm text-gray-400">No metrics tracked yet.</p>;

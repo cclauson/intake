@@ -58,11 +58,12 @@ export default function MealList() {
   const { apiFetch } = useApiFetch();
   const [data, setData] = useState<MealsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch<MealsResponse>("/api/dashboard/meals")
       .then(setData)
-      .catch(() => {})
+      .catch((e) => setError(e.message ?? "Failed to load meals"))
       .finally(() => setLoading(false));
   }, [apiFetch]);
 
@@ -78,6 +79,10 @@ export default function MealList() {
         </div>
       </>
     );
+  }
+
+  if (error) {
+    return <p className="text-sm text-red-500">Error loading meals: {error}</p>;
   }
 
   if (!data || data.meals.length === 0) {

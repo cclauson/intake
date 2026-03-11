@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useMsal } from "@azure/msal-react";
-import { apiTokenRequest } from "./authConfig";
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
+import { apiTokenRequest, loginRequest } from "./authConfig";
 
 export function useApiFetch() {
   const { instance } = useMsal();
@@ -12,16 +13,30 @@ export function useApiFetch() {
       const account = instance.getActiveAccount();
       if (!account) throw new Error("No active account");
 
-      const response = await instance.acquireTokenSilent({
-        ...apiTokenRequest,
-        account,
-      });
+      let accessToken: string;
+      try {
+        const response = await instance.acquireTokenSilent({
+          ...apiTokenRequest,
+          account,
+        });
+        accessToken = response.accessToken;
+      } catch (e) {
+        if (e instanceof InteractionRequiredAuthError) {
+          await instance.acquireTokenRedirect({
+            ...loginRequest,
+            account,
+          });
+          // redirect will navigate away; this line won't execute
+          throw e;
+        }
+        throw e;
+      }
 
       const res = await fetch(path, {
         ...init,
         headers: {
           ...init?.headers,
-          Authorization: `Bearer ${response.accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
