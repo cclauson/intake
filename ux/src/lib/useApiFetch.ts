@@ -21,14 +21,13 @@ export function useApiFetch() {
         });
         accessToken = response.accessToken;
       } catch (e) {
-        if (e instanceof InteractionRequiredAuthError) {
-          await instance.acquireTokenRedirect({
-            ...loginRequest,
-            account,
-          });
-          // redirect will navigate away; this line won't execute
-          throw e;
-        }
+        // Any silent token failure (expired, timed out, interaction required)
+        // should fall back to an interactive redirect
+        await instance.acquireTokenRedirect({
+          ...loginRequest,
+          account,
+        });
+        // redirect will navigate away; this line won't execute
         throw e;
       }
 
