@@ -2,8 +2,11 @@
 
 import { useCallback } from "react";
 import { useMsal } from "@azure/msal-react";
-import { InteractionRequiredAuthError } from "@azure/msal-browser";
+import { BrowserAuthError } from "@azure/msal-browser";
 import { apiTokenRequest, loginRequest } from "./authConfig";
+
+// Shared promise so concurrent callers don't each trigger a redirect
+let redirectInFlight: Promise<void> | null = null;
 
 export function useApiFetch() {
   const { instance } = useMsal();
@@ -21,12 +24,14 @@ export function useApiFetch() {
         });
         accessToken = response.accessToken;
       } catch (e) {
-        // Any silent token failure (expired, timed out, interaction required)
-        // should fall back to an interactive redirect
-        await instance.acquireTokenRedirect({
-          ...loginRequest,
-          account,
-        });
+        // Any silent token failure should fall back to interactive redirect.
+        // Deduplicate: if a redirect is already in flight, wait for it.
+        if (!redirectInFlight) {
+          redirectInFlight = instance
+            .acquireTokenRedirect({ ...loginRequest, account })
+            .finally(() => { redirectInFlight = null; });
+        }
+        await redirectInFlight;
         // redirect will navigate away; this line won't execute
         throw e;
       }
