@@ -182,8 +182,8 @@ function NutritionCharts() {
   );
 }
 
-function MetricSparkline({ entries, unit }: { entries: { date: string; value: number }[]; unit: string }) {
-  const entryMap = new Map(entries.map((e) => [e.date, e.value]));
+function MetricChartPreview({ metric }: { metric: typeof metrics[0] }) {
+  const entryMap = new Map(metric.entries.map((e) => [e.date, e.value]));
 
   const data: { label: string; value: number | null }[] = [];
   for (let i = 6; i >= 0; i--) {
@@ -196,28 +196,24 @@ function MetricSparkline({ entries, unit }: { entries: { date: string; value: nu
     });
   }
 
-  return (
-    <ResponsiveContainer width="100%" height={80}>
-      <LineChart data={data}>
-        <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-        <YAxis domain={["dataMin", "dataMax"]} hide />
-        <Tooltip formatter={(v: unknown) => `${v} ${unit}`} contentStyle={tooltipStyle} />
-        <Line type="monotone" dataKey="value" stroke="#14b8a6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
-
-function MetricCardPreview({ metric }: { metric: typeof metrics[0] }) {
   const latest = metric.entries[0];
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-5">
-      <div className="flex items-baseline gap-2 mb-3">
-        <h3 className="text-sm font-medium text-gray-900">{metric.name}</h3>
+      <div className="flex items-baseline gap-2 mb-4">
+        <h3 className="text-sm font-medium text-gray-900">{metric.name} (7 days)</h3>
         <span className="text-xs text-gray-400">{metric.unit}</span>
+        {latest && <span className="text-sm font-semibold text-gray-900 ml-auto">{latest.value}</span>}
       </div>
-      <p className="text-2xl font-semibold text-gray-900 tracking-tight mb-2">{latest.value}</p>
-      {metric.entries.length > 1 && <MetricSparkline entries={metric.entries} unit={metric.unit} />}
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+          <YAxis domain={["dataMin - 1", "dataMax + 1"]} tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={45} />
+          <Tooltip formatter={(v: unknown) => `${v} ${metric.unit}`} contentStyle={tooltipStyle} />
+          <Line type="monotone" dataKey="value" stroke="#14b8a6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls name={metric.name} />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -262,9 +258,9 @@ export default function DashboardPreview() {
 
         <div className="mt-12">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Metrics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             {metrics.map((m) => (
-              <MetricCardPreview key={m.id} metric={m} />
+              <MetricChartPreview key={m.id} metric={m} />
             ))}
           </div>
         </div>
