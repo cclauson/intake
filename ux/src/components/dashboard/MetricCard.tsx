@@ -23,6 +23,13 @@ interface Metric {
   entries: MetricEntry[];
 }
 
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatDay(date: string) {
+  const d = new Date(date + "T12:00:00Z");
+  return DAY_NAMES[d.getUTCDay()];
+}
+
 function NumericSparkline({
   entries,
   unit,
@@ -30,26 +37,27 @@ function NumericSparkline({
   entries: MetricEntry[];
   unit: string | null;
 }) {
-  const ascending = [...entries].reverse();
-  const data = ascending.map((e) => ({
-    ts: new Date(e.date + "T12:00:00Z").getTime(),
-    date: e.date,
-    value: e.value ?? 0,
-  }));
+  // Build a 7-day window with day-of-week labels, matching the nutrition charts
+  const today = new Date();
+  today.setUTCHours(12, 0, 0, 0);
+  const entryMap = new Map(entries.map((e) => [e.date, e.value ?? 0]));
 
-  const formatDate = (ts: number) => {
-    const d = new Date(ts);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  };
+  const data: { label: string; value: number | null }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    data.push({
+      label: formatDay(dateStr),
+      value: entryMap.has(dateStr) ? entryMap.get(dateStr)! : null,
+    });
+  }
 
   return (
     <ResponsiveContainer width="100%" height={80}>
       <LineChart data={data}>
         <XAxis
-          dataKey="ts"
-          type="number"
-          domain={["dataMin", "dataMax"]}
-          tickFormatter={formatDate}
+          dataKey="label"
           tick={{ fontSize: 10, fill: "#9ca3af" }}
           axisLine={false}
           tickLine={false}
@@ -57,7 +65,6 @@ function NumericSparkline({
         <YAxis domain={["dataMin", "dataMax"]} hide />
         <Tooltip
           formatter={(v: unknown) => `${v}${unit ? ` ${unit}` : ""}`}
-          labelFormatter={(ts) => formatDate(ts as number)}
           contentStyle={{
             fontSize: 12,
             borderRadius: 8,
@@ -71,6 +78,7 @@ function NumericSparkline({
           strokeWidth={2}
           dot={false}
           activeDot={{ r: 4 }}
+          connectNulls
         />
       </LineChart>
     </ResponsiveContainer>

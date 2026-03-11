@@ -183,21 +183,26 @@ function NutritionCharts() {
 }
 
 function MetricSparkline({ entries, unit }: { entries: { date: string; value: number }[]; unit: string }) {
-  const data = [...entries].reverse().map((e) => ({
-    ts: new Date(e.date + "T12:00:00Z").getTime(),
-    value: e.value,
-  }));
+  const entryMap = new Map(entries.map((e) => [e.date, e.value]));
 
-  const fmtDate = (ts: number) =>
-    new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const data: { label: string; value: number | null }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    data.push({
+      label: formatDay(dateStr),
+      value: entryMap.has(dateStr) ? entryMap.get(dateStr)! : null,
+    });
+  }
 
   return (
     <ResponsiveContainer width="100%" height={80}>
       <LineChart data={data}>
-        <XAxis dataKey="ts" type="number" domain={["dataMin", "dataMax"]} tickFormatter={fmtDate} tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
         <YAxis domain={["dataMin", "dataMax"]} hide />
-        <Tooltip formatter={(v: unknown) => `${v} ${unit}`} labelFormatter={(ts) => fmtDate(ts as number)} contentStyle={tooltipStyle} />
-        <Line type="monotone" dataKey="value" stroke="#14b8a6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+        <Tooltip formatter={(v: unknown) => `${v} ${unit}`} contentStyle={tooltipStyle} />
+        <Line type="monotone" dataKey="value" stroke="#14b8a6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} connectNulls />
       </LineChart>
     </ResponsiveContainer>
   );
